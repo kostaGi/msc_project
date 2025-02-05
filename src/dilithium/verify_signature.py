@@ -10,14 +10,14 @@ from pack_functions import pack_pk, unpack_pk, unpack_sig, bit_pack_w_vector
 def verify(pk, M, sigma):
 
     # Unpack public key and signature
-    c_tilde, z, h = unpack_sig(sigma)
+    c_tilde, z, h = unpack_sig(sigma, gamma_1)
     rho, t1 = unpack_pk(pk)
 
     # Step 27: Expand A from ρ and store in NTT representation
-    A = expand_matrix_A(rho, k, l, n, q)
-   
     # Transform A to NTT domain
-    A_ntt = ntt_matrix(A, n, q, sample_primitive)
+    #A = expand_matrix_A(rho, k, l, n, q)
+    #A_ntt = ntt_matrix(A, n, q, sample_primitive)
+    A_ntt = ntt_matrix(expand_matrix_A(rho, k, l, n, q), n, q, sample_primitive)
 
     # Step 28: Compute µ = CRH(CRH(ρ || t1) || M)
     tr = shake256_hash(pk, 48)  # 384 bits = 48 bytes
@@ -58,11 +58,11 @@ def verify(pk, M, sigma):
     w = [intt(poly, n, q, sample_primitive) for poly in w_ntt]    
 
     # UseHint to compute w'1
-    w1 = use_hint_q(h, w, 2 * gamma2)
+    w1 = use_hint_q(h, w, 2 * gamma_2, n)
 
     # Step 31: Verify conditions
     # (1) ∥z∥∞ < γ1 - β
-    norm_z = norm_inf_array(z, (gamma1 - beta))
+    norm_z = norm_inf_array(z, (gamma_1 - beta))
     if norm_z:
         print("Norm Z check failed")
         return False

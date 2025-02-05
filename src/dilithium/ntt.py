@@ -21,18 +21,14 @@ def bit_reverse(input_number, bits):
 def ntt(poly, poly_length, prime_modulus, primitive):
     #The input polynomial must have exactly n coefficients
     assert len(poly) == poly_length , "Polynomial does not match poly_length - ntt"
-
     # Ensure Python integers
     poly = [int(x) for x in poly]  
-    
     # Precompute powers of the root of unity g
     root_powers = [1]
     for _ in range(1, poly_length):
         root_powers.append((root_powers[-1] * primitive) % prime_modulus)
-        
     bits = poly_length.bit_length() - 1
     poly = [poly[bit_reverse(Counter_1, bits)] for Counter_1 in range(poly_length)]
-
     # Iterative Cooley-Tukey NTT
     length = 2
     while length <= poly_length:
@@ -47,7 +43,6 @@ def ntt(poly, poly_length, prime_modulus, primitive):
                 poly[Counter_1 + Counter_2 + half] = (u - v) % prime_modulus
                 w = (w * root) % prime_modulus
         length *= 2
-
     return poly
 
 
@@ -57,22 +52,16 @@ def ntt(poly, poly_length, prime_modulus, primitive):
 # prime_modulus - prime modulus
 # primitive - primitive n-th root of unity modulo prime_modulus
 def intt(poly, poly_length, prime_modulus, primitive):
-    
     #The input polynomial must have exactly n coefficients
     assert len(poly) == poly_length , 'Polynomial does not match poly_length - intt'
-
     # Compute modular inverse of n
     poly_inv = pow(poly_length, prime_modulus - 2, prime_modulus)
-
     # Compute inverse of the primitive root
     primitive_inv = pow(primitive, prime_modulus - 2, prime_modulus)
-
     # Apply NTT using primitive_inv
     poly = ntt(poly, poly_length, prime_modulus, primitive_inv)
-  
     # Normalize by multiplying by poly_inv
     poly = [(x * poly_inv) % prime_modulus for x in poly]
-
     return poly
 
 # compute ntt for vector (a x 1) where each element is polynomial

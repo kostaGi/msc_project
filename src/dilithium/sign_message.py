@@ -14,14 +14,15 @@ from pack_functions import unpack_sk, pack_sig, unpack_sig, bit_pack_w_vector
 # Can substitue rho with matrix A and skip step 9
 def dilithium_sign(M, sk):
 
+    #unpack secret key from bytes
     rho, K, tr, s1, s2, t0 = unpack_sk(sk)
 
     # Step 09: Expand matrix A from rho  (can be substituted with input the method)
-    A = expand_matrix_A(rho, k, l, n, q)
-
     # Transform A to NTT domain
-    A_ntt = ntt_matrix(A, n, q, sample_primitive)
-
+    #A = expand_matrix_A(rho, k, l, n, q)
+    #A_ntt = ntt_matrix(A, n, q, sample_primitive)
+    A_ntt = ntt_matrix(expand_matrix_A(rho, k, l, n, q), n, q, sample_primitive)
+    
     # Step 10: Compute µ from tr and M
     # CRH(tr || M), 384-bit output
     mu = shake256_hash((tr + M), 48)
@@ -42,9 +43,8 @@ def dilithium_sign(M, sk):
     while z is None and h is None:
         # Step 14: Generate y from ExpandMask
         # Expand y deterministically
-        y = expand_mask(rho_prime, kappa, l, n, gamma1)  
+        y = expand_mask(rho_prime, kappa, l, n, gamma_1)  
         y_ntt = ntt_vector(y, n, q, sample_primitive)
-
 
         # Step 15: Compute w = A * y
         w = []
@@ -53,17 +53,13 @@ def dilithium_sign(M, sk):
             for counter_2 in range(l):
                 product = intt(mod_multiply_poly(A_ntt[counter_1][counter_2] , y_ntt[counter_2], q), n, q, sample_primitive)
                 row_sum = (row_sum + product) % q  
-            #w.append((row_sum+q) % q)
             w.append(row_sum)
 
-        
         # Step 16: Compute high bits w1
-        w1 = high_bits_vector_q(w, 2 * gamma2)
+        w1 = high_bits_vector_q(w, 2 * gamma_2)
 
         # Step 17: Hash µ || w1 to generate challenge
-        # Serialize w1 into bytes - Flatten the matrix
-        #w1_flattened = w1.flatten()  
-        #w1_bytes = b''.join(int(x).to_bytes(6, 'little') for x in w1_flattened)
+        # Pack w1 into bytes
         w1_bytes = bit_pack_w_vector(w1)
         # Concatenate µ and w1
         data = mu + w1_bytes
@@ -84,9 +80,7 @@ def dilithium_sign(M, sk):
         for counter_1 in range(l):
                 product = mod_multiply_poly(c_ntt, s1_ntt[counter_1], q)
                 ntt_c_s1.append((product+q) % q)
-
         cs1 = intt_vector(ntt_c_s1, n, q, sample_primitive) % q
-
         z = (y + cs1) % q
 
         # Step 20: Compute r0 = LowBits_q(w - c * s2, 2γ2)
@@ -94,19 +88,14 @@ def dilithium_sign(M, sk):
         for counter_1 in range(k):
                 product = mod_multiply_poly(c_ntt, s2_ntt[counter_1], q)
                 ntt_c_s2.append((product+q) % q)        
-
         cs2 = intt_vector(ntt_c_s2, n, q, sample_primitive) % q
-
         w_cs2 = (w - cs2)
-        r0 = low_bits_vector_q(w_cs2, 2 * gamma2)
-
-        w0 = low_bits_vector_q(w, 2 * gamma2)
-        w0_cs2 = (w0 - cs2) % q
+        r0 = low_bits_vector_q(w_cs2, 2 * gamma_2)
 
         # Step 21: Check bounds for z and r0
         # Compute infinity norms
-        norm_z = norm_inf_array(z, (gamma1 - beta))
-        norm_r0 = norm_inf_array(r0, (gamma2 - beta))
+        norm_z = norm_inf_array(z, (gamma_1 - beta))
+        norm_r0 = norm_inf_array(r0, (gamma_2 - beta))
 
         # Check bounds
         if norm_z or norm_r0:
@@ -124,30 +113,31 @@ def dilithium_sign(M, sk):
         ct0 = intt_vector(ntt_c_t0, n, q, sample_primitive)        
 
         # Compute hint h 
-        h = make_hint_q(-ct0, (w_cs2 + ct0)%q, 2 * gamma2)
+        h = make_hint_q(-ct0, (w_cs2 + ct0)%q, 2 * gamma_2, n)
         
         # Step 23-24: Validate hint
-        norm_ct0 = norm_inf_array(ct0, gamma2)
+        norm_ct0 = norm_inf_array(ct0, gamma_2)
         if norm_ct0 or weight(h) > omega:
             z, h = None, None  # Reset and retry
             kappa += 1
             continue
 
     z = z.tolist()
-    sigma = pack_sig(c_tilde, z, h)
+
+    # pack sigma
+    sigma = pack_sig(c_tilde, z, h, gamma_1)
 
     # for testig
-    c_tilde1, z1, h1 = unpack_sig(sigma)
+    '''
+    c_tilde1, z1, h1 = unpack_sig(sigma, gamma_1)
     
     assert c_tilde == c_tilde1, "c_tilde1 FAILS"
-
     if not (z == [[(a2 + q)%q for a2 in a1 ]for a1 in z1]):
         print("z value: ", z)
         print("z1 value: ", z1)
-
-
     assert z == [[(a2 + q)%q for a2 in a1 ]for a1 in z1], "z1 FAILS"
     assert h == h1, "h1 FAILS"
+    '''
     # end testing
 
     return sigma

@@ -21,9 +21,11 @@ def sample_polynomials(seed, total_number_of_poly, bound, poly_length, modulus):
     polynomials = []
     for _ in range(total_number_of_poly):
         coeffs = list(np.random.randint(-bound, bound + 1, size=poly_length))
-        polynomials.append(coeffs) #% modulus)
+        polynomials.append(coeffs)
     return tuple(polynomials)    
 
+# For each element of polynomial
+# compute high and low part
 def power2_round(poly, d):
     factor = 1 << d
     high_array = []
@@ -53,13 +55,12 @@ def generate_keys():
 
     # Step 04: Expand matrix A from rho 
     # A = (k by l)
-    A = expand_matrix_A(rho, k, l, n, q)
+    # Transform A to NTT domain
+    #A = expand_matrix_A(rho, k, l, n, q)
+    #A_ntt = ntt_matrix(A, n, q, sample_primitive)
+    A_ntt = ntt_matrix(expand_matrix_A(rho, k, l, n, q), n, q, sample_primitive)
 
     # Step 05: Compute t = As1 + s2      
-    # Transform A to NTT domain
-    # !!! sample_primitive - generated in the dilithium_constansts.py 
-    A_ntt = ntt_matrix(A, n, q, sample_primitive)
-    
     # Transform s1 to NTT domain
     s1_ntt = ntt_vector(s1, n, q, sample_primitive)
 
@@ -87,9 +88,6 @@ def generate_keys():
 
     # testing (un)pack
     rho1, t11 = unpack_pk(pk)
-    #[print(type(c)) for c in t1]
-    #print("t1: ", type(t1) , t1)
-    #print("t11: ", type(t11), t11)
     assert rho == rho1, "rho pk FAILS"
     assert t1 == t11, "t1 pk FAILS"
 

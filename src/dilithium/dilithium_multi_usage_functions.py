@@ -16,7 +16,6 @@ def mod_multiply(left_int, right_int, modulo):
         # If right_int is odd, add left_int to the result
         if right_int % 2 == 1:  
             result = (result + left_int) % modulo
-
         # Double left_int and halve right_int    
         left_int = (left_int * 2) % modulo  
         right_int //= 2
@@ -40,16 +39,18 @@ def shake256_hash(data, output_length):
 
 # Expand matrix A deterministically from seed,
 # matrix has size k by l,
-# each element is a polynomial with length poly_length
-def expand_matrix_A(seed, k, l, poly_length, modulus): 
+# each element is a polynomial with length n
+def expand_matrix_A(seed, k, l, n, modulus): 
     matrix = []
     for counter_1 in range(k):
         row = []
         for counter_2 in range(l):
-            random_bytes = shake128_hash(seed + (counter_1*256+counter_2).to_bytes(2, 'little'), 3*260)
-            current_hash = int.from_bytes(random_bytes, byteorder='big')
+            # generate a little more than 3*n random bytes for matrix A elements
+            random_bytes = shake128_hash(seed + (counter_1*n+counter_2).to_bytes(2, 'little'), 3*n+2)
+            current_hash = int.from_bytes(random_bytes, byteorder='little')
             poly = []
             for _ in range(n):
+                # each element of poly is at most 23 bits long (remove the most left bit from the 3 bytes on the right)
                 poly.append(current_hash & ((1 << 23) - 1))
                 current_hash = current_hash >> 24
             row.append(poly)
@@ -63,15 +64,14 @@ def expand_matrix_A(seed, k, l, poly_length, modulus):
 # n: Number of coefficients in the polynomial
 # gamma_1: Bound on the coefficients
 def expand_mask(rho_prime, kappa, l, n, gamma_1):
+    #default value for security level 2
     gamma_power = 17
-
     if gamma_1 == (1 << 17):
         gamma_power = 17
     else:
         gamma_power = 19
-
-    # (256 * 18) // 8 = 576 
-    # (256 * 20) // 8 = 640 
+    # (256 * (17+1)) // 8 = 576 
+    # (256 * (19+1)) // 8 = 640 
     bytes_to_generate = (n * (gamma_power+1) // 8)
     polynomials = []
     for counter_1 in range(l):
@@ -91,35 +91,32 @@ def expand_mask(rho_prime, kappa, l, n, gamma_1):
 # n: Degree of the polynomial.
 # tau: Number of nonzero coefficients.
 def sample_in_ball(c_tilde, n, tau):
-    
-    # initilize poly with all 0
     poly = [0] * n
-
     # Absorb ˜c into SHAKE-256 to create a random intitial stream of 32 bytes
     shake = shake_256()
     shake.update(c_tilde)
-    random_bytes = shake.digest(32)  
-
+    random_bytes = shake.digest(32) 
+    number_of_digest = 1 
     # Extract τ sign bits from the first 8 bytes
-    sign_bits = [(random_bytes[i // 8] >> (i % 8)) & 1 for i in range(tau)]
-
+    sign_bits = [(random_bytes[counter_1 // 8] >> (counter_1 % 8)) & 1 for counter_1 in range(tau)]
     # Start reading after the first 8 bytes
     byte_index = 8  
-    for i in range(n-tau, n):
+    for counter_1 in range(n-tau, n):
         current_sign_pos = 0
         while True:
             if byte_index >= len(random_bytes):
                 # Extend the random stream if needed
-                random_bytes += shake.digest(64)
-            j = random_bytes[byte_index]
+                number_of_digest += 1
+                random_bytes = shake.digest(32 * number_of_digest)
+            byte_value = random_bytes[byte_index]
             byte_index += 1
             # Rejection sampling condition
-            if j <= i:  
-                poly[i] = poly[j]
+            if byte_value <= counter_1:  
+                poly[counter_1] = poly[byte_value]
                 if sign_bits[current_sign_pos] == 1:
-                    poly[j] = 1
+                    poly[byte_value] = 1
                 else:
-                    poly[j] = -1
+                    poly[byte_value] = -1
                 current_sign_pos += 1
                 break
     return poly
@@ -175,7 +172,6 @@ def decompose_matrix(matrix, alpha):
         low_array.append(low)
     return high_array, low_array
 
-
 # Returns high bits of poly
 def high_bits_poly_q(poly, alpha):
     high, _ = decompose_poly(poly, alpha)
@@ -206,25 +202,15 @@ def low_bits_matrix_q(matrix, alpha):
     _, low = decompose_matrix(matrix, alpha)
     return low    
 
-'''
-Generic methods from documentation
-# Returns high bits of poly
-def high_bits_q(poly, alpha):
-    high, _ = decompose_poly(poly, alpha)
-    return high
-
-# Returns low bits of poly
-def low_bits_q(poly, alpha):
-    _, low = decompose_poly(poly, alpha)
-    return low
-'''
 # Make a hint for a vector
-def make_hint_q(zeta, vector, alpha):
+def make_hint_q(zeta, vector, alpha, n):
     assert len(zeta) == len(vector) , "Vectors does not match length - make_hint_q"
+    assert len(zeta[0]) == n , "Vector \"h\" does not match poly length - use_hint_q"
+    assert len(vector[0]) == n , "Vector \"vector\" does not match poly length - use_hint_q"
     high_vector = high_bits_vector_q(vector, alpha)
     high_vector_check = high_bits_vector_q( (vector+zeta), alpha)
     return_array = []
-    for counter_1 in range(k):
+    for counter_1 in range(len(zeta)):
         row_value = [0] * n
         for counter_2 in range(n):
             if high_vector[counter_1][counter_2] != high_vector_check[counter_1][counter_2]:
@@ -233,9 +219,10 @@ def make_hint_q(zeta, vector, alpha):
     return tuple(return_array)
 
 # Use a hint for a vector     
-def use_hint_q(h, vector, alpha):
-
+def use_hint_q(h, vector, alpha, n):
     assert len(h) == len(vector) , "Vectors does not match length - use_hint_q"
+    assert len(h[0]) == n , "Vector \"h\" does not match poly length - use_hint_q"
+    assert len(vector[0]) == n , "Vector \"vector\" does not match poly length - use_hint_q"
     m = (q - 1) // alpha
     high_vector, low_vector = decompose_vector(vector, alpha)
     return_vector = []
@@ -271,16 +258,13 @@ def check_norm_bound(element, max_value, modulo):
     x = ((modulo - 1) >> 1) - x
     return x >= max_value
 
-
 # compute the Hamming weight of a polynomial (number of nonzero coefficients).
 def weight(h):
-    #return sum([[element for element in poly] for poly in h]
     sum = 0
     for counter_1 in range(k):
         for counter_2 in range(n):    
             sum += h[counter_1][counter_2]
-    return sum        
-
+    return sum
 
      
 

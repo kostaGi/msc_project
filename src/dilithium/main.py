@@ -1,13 +1,14 @@
 from generate_key import generate_keys 
 from sign_message import dilithium_sign
 from verify_signature import verify
-
 from dilithium_constants import * 
 
 
 
 # tested on python 3.11
 def main():
+
+    set_dilithium_security_level(3)
 
     print("Security parameters for Dilithium:")
     print("q: ", q)
@@ -17,11 +18,12 @@ def main():
     print("eta: ", eta)
     print("d: ", d)
     print("tau: ", tau)
-    print("gamma1: ", gamma1)
-    print("gamma2: ", gamma2)
+    print("gamma_1: ", gamma_1)
+    print("gamma_2: ", gamma_2)
     print("beta: ", beta)
     print("omega: ", omega)
     print("\n\n")
+    
 
     # generate keys (byte format)
     pk, sk = generate_keys()
@@ -34,6 +36,10 @@ def main():
 
     # Sign msg1
     sigma = dilithium_sign(msg1_bytes, sk)
+
+    print("PK", pk.hex())
+    print("SK", sk.hex())
+    print("sigma", sigma.hex())
 
     print("Test Dilithium verify:")
     print("\n")
