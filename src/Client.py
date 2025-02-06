@@ -64,7 +64,7 @@ async def main():
     d_sigma = dilithium_sign(proof_bytes, d_sk)
         
     payload_dict = {
-        "proof": proof_hex,
+        "proof": proof_bytes.hex(),
         "public_key": d_pk.hex(),
         "signature": d_sigma.hex()
     }	

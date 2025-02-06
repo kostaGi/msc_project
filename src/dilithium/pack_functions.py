@@ -1,5 +1,5 @@
 #local files
-from dilithium_constants import * 
+from dilithium.dilithium_constants import * 
 
 #pack and unpack different parameters into bytes
 

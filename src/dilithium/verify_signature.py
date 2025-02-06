@@ -2,10 +2,10 @@
 import numpy as np
 
 #local files
-from dilithium_constants import *  
-from dilithium_multi_usage_functions import shake256_hash, expand_matrix_A, sample_in_ball, mod_multiply_poly, use_hint_q, weight, norm_inf_array
-from ntt import ntt, intt, ntt_matrix, ntt_vector
-from pack_functions import pack_pk, unpack_pk, unpack_sig, bit_pack_w_vector
+from dilithium.dilithium_constants import *  
+from dilithium.dilithium_multi_usage_functions import shake256_hash, expand_matrix_A, sample_in_ball, mod_multiply_poly, use_hint_q, weight, norm_inf_array
+from dilithium.ntt import ntt, intt, ntt_matrix, ntt_vector
+from dilithium.pack_functions import pack_pk, unpack_pk, unpack_sig, bit_pack_w_vector
 
 def verify(pk, M, sigma):
 

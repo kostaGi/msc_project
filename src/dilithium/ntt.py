@@ -2,7 +2,7 @@
 import numpy as np
 
 #local files
-from dilithium_constants import * 
+from dilithium.dilithium_constants import * 
 
 # Bit-reversal permutation of input (a bit number is re-writen from right to left - example -> 001 -> 100 or 010 -> 010)
 # Example : if we input number 1 and use 3 bits => 1 is 001 (in bits) , which transforms into 100 , which is equal to 4

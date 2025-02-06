@@ -2,10 +2,10 @@
 import numpy as np
 
 #local files
-from dilithium_constants import * 
-from ntt import ntt, intt , ntt_matrix, ntt_vector
-from dilithium_multi_usage_functions import shake256_hash, expand_matrix_A, mod_multiply_poly, reduce_mod
-from pack_functions import pack_pk, pack_sk, unpack_pk, unpack_sk
+from dilithium.dilithium_constants import * 
+from dilithium.ntt import ntt, intt , ntt_matrix, ntt_vector
+from dilithium.dilithium_multi_usage_functions import shake256_hash, expand_matrix_A, mod_multiply_poly, reduce_mod
+from dilithium.pack_functions import pack_pk, pack_sk, unpack_pk, unpack_sk
 
 # Generates a random 256-bit string
 def random_256_bit_string():

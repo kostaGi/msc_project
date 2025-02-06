@@ -5,7 +5,7 @@ import numpy as np
 from hashlib import shake_256, shake_128
 
 #local files
-from dilithium_constants import * 
+from dilithium.dilithium_constants import * 
 
 
 # multiply 2 numbers modulo a number (without overflow)
