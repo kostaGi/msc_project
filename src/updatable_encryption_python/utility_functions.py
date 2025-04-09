@@ -1,6 +1,6 @@
 import numpy as np
 
-from parameters import *
+from updatable_encryption_python.parameters import *
 
 def sample_uniform_matrix(rows, cols, q):
     return np.random.randint(0, q, (rows, cols))
@@ -11,8 +11,12 @@ def sample_normal_matrix(rows, cols, mean, sigma):
     # Round to the nearest integer to make it discrete
     discrete_samples = np.round(samples).astype(int)
     return discrete_samples
-
-
+# returns a value in range -q/2 to q/2
+def modQ(input):
+    input = input % q
+    if input > q // 2:
+        return input - q
+    return input
 
 #print
 def VerifyR(R):
@@ -52,8 +56,8 @@ def Lemma1Check(R, e):
 
     Rt_ext = np.block([ Rt, np.eye(len(e)-len(Rt[0]), dtype=int) ])
     Rte = np.dot(Rt_ext, e)
-    print("Rte=",Rte)
-    VerifyE(Rte)
+    #print("Rte=",Rte)
+    #VerifyE(Rte)
 
     for r in Rte:
         if abs(r) > q/4:
@@ -85,6 +89,7 @@ def EqualityCheck(pk, sk):
         [np.eye(n, dtype=int)]
     ])
     assert np.array_equal(H_I, I) == True
+
 def decode(encoded_message):
 
     #print("encoded_message=",encoded_message)
@@ -107,40 +112,6 @@ def encode(message):
     encoded = message * p
     encoded = encoded.astype(int) % q
     return encoded
-'''
-#NEW TO FIX
-B_enc = np.random.randint(-q//2, q//2, size=(n * k, n * k))
-
-def encode(message):
-    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", n * k)
-    """
-    Encode a binary message vector into a lattice point.
-    
-    :param m: Binary message of length n*k (1D numpy array of 0s and 1s)
-    :return: Encoded lattice point in Z^(n*k)
-    """
-    if len(message) != n * k:
-        raise ValueError(f"Message must be of length {n*k}")
-    
-    return (B_enc @ message)  # Linear transformation into the lattice
-
-def decode(encoded):
-    """
-    Decode a lattice point back into the original binary message.
-    
-    :param v: Lattice vector in Z^(n*k)
-    :return: Decoded binary message
-    """
-    # Solve Bm ≈ v using the pseudoinverse (assuming B is full rank)
-    m_approx = np.linalg.pinv(B_enc) @ encoded
-
-    # Round to nearest binary values (0 or 1)
-    m_decoded = np.round(m_approx).astype(int) % 2
-
-
-    #print("m_decoded=", m_decoded)
-    return m_decoded
-'''
 
 def sample_perturbation_v2(R1, s, m):
     w = R1.shape[1]          # R is (m_bar x w)
@@ -157,3 +128,135 @@ def sample_perturbation_v2(R1, s, m):
     p = np.random.multivariate_normal(np.zeros(m), Sigma_p)  # Sampling from Gaussian
     p = p.astype(int)
     return p 
+
+# Function to generate a random n x n matrix with determinant 1 and not an identity matrix
+def generate_matrixQ(matrix_size):
+    matrix = identity_matrix(matrix_size)
+
+    for i in range(matrix_size*3):
+        r1 = np.random.randint(0, matrix_size)
+        r2 = np.random.randint(0, matrix_size)
+        if r1 != r2 :
+            factor = np.random.randint(0, q-1) + 1
+            for j in range(matrix_size):
+                matrix[r1][j] = modQ(matrix[r1][j] + factor*matrix[r2][j])
+    return matrix
+
+# Function to generate an identity matrix of size n
+def identity_matrix(matrix_size):
+    return np.eye(matrix_size)
+
+# Function to compute the modular inverse of a number mod q
+def mod_inverseQ(a):
+    a = a % q
+    for x in range(q):
+        if a*x % q == 1:
+            return x 
+
+    #Assumes q is prime
+    return 1
+'''
+def inverse_matrixQ(mat, matrix_size):
+    inv = identity_matrix(matrix_size)
+    augmented = [row + inv_row for row, inv_row in zip(mat, inv)]
+
+    for i in range(matrix_size):
+        pivot = augmented[i][i]
+        invPivot = mod_inverseQ(pivot)
+        
+        for j in range(2 * matrix_size):
+            augmented[i][j] = (augmented[i][j] * invPivot) % q
+        
+        for k in range(matrix_size):
+            if k != i:
+                factor = augmented[k][i]
+                for j in range(2 * matrix_size):
+                    augmented[k][j] = (augmented[k][j] - factor * augmented[i][j]) % q
+                    if augmented[k][j] < 0:
+                        augmented[k][j] += q
+    
+    return [row[matrix_size:] for row in augmented]
+'''
+
+def inverse_matrixQ(mat, matrix_size):
+    inv = identity_matrix(matrix_size)
+    augmented = []
+    for i in range (len(mat)):
+        new_array = []
+        for j in range(len(mat[i])):
+            new_array.append(mat[i][j])
+
+        for j in range(len(inv[i])):
+            new_array.append(inv[i][j])     
+        augmented.append(new_array)
+
+    for i in range(matrix_size):
+        pivot = augmented[i][i]  
+        invPivot = mod_inverseQ(pivot)
+        for j in range(2*matrix_size):
+            augmented[i][j] = modQ(augmented[i][j] * invPivot)
+        for k in range(matrix_size):
+            if k!=i:
+                factor = augmented[k][i]
+                for j in range(2*matrix_size):
+                    augmented[k][j] = modQ(augmented[k][j] - factor*augmented[i][j])
+                    if augmented[k][j] < 0 :
+                        augmented[k][j] += q
+					
+    for i in range(matrix_size):
+        inv[i] = augmented[i][matrix_size:]
+    return inv
+
+'''
+ Function to compute the inverse of a matrix modulo q
+func inverse_matrixQ(mat [][]int, matrix_size int) [][]int {
+	inv := identity_matrix(matrix_size)
+	augmented := make([][]int, matrix_size)
+	for i := range mat {
+		augmented[i] = append(mat[i], inv[i]...)
+	}
+
+	for i := 0; i < matrix_size; i++ {
+		pivot := augmented[i][i]
+		invPivot := mod_inverseQ(pivot)
+		for j := 0; j < 2*matrix_size; j++ {
+			augmented[i][j] = (augmented[i][j] * invPivot) % C.q
+		}
+		for k := 0; k < matrix_size; k++ {
+			if k != i {
+				factor := augmented[k][i]
+				for j := 0; j < 2*matrix_size; j++ {
+					augmented[k][j] = (augmented[k][j] - factor*augmented[i][j]) % C.q
+					if augmented[k][j] < 0 {
+						augmented[k][j] += C.q
+					}
+				}
+			}
+		}
+	}
+
+	for i := 0; i < matrix_size; i++ {
+		inv[i] = augmented[i][matrix_size:]
+	}
+	return inv
+}
+'''
+
+# Function to compare a matrix with the identity matrix
+def is_identity_matrix(mat, matrix_size):
+    identity = identity_matrix(matrix_size)
+    for i in range(matrix_size):
+        for j in range(matrix_size):
+            if mat[i][j] != identity[i][j]:
+                return False
+    return True
+
+# Function to generate an invertible matrix mod q
+def generate_invertible_matrixQ(matrix_size):
+    for _ in range(1000):
+        matrix = generate_matrixQ(matrix_size)
+        inv_matrix = inverse_matrixQ(matrix, matrix_size)
+        product = np.dot(matrix, inv_matrix) % q
+        if is_identity_matrix(product, matrix_size):
+            return matrix
+    return None

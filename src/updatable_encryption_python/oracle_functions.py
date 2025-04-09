@@ -1,5 +1,5 @@
 import numpy as np
-from parameters import *
+from updatable_encryption_python.parameters import *
 
 def base_b_decomposition(v, b, k):
     digits = []

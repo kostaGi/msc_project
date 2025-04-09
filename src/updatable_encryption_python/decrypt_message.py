@@ -21,7 +21,7 @@ def InvertO(R, A_0_1, b_0_1, H_2, doerrch):
         s_m[i] = oracle_sampleO(b_0_1_hat[i*k:k*(i+1)])
     print("s_m=", s_m)
 
-    H_2_inv = np.linalg.inv(H_2).astype(int)
+    H_2_inv = inverse_matrixQ(H_2, n)
     s_calc = np.dot(s_m, H_2_inv) % q
     e_calc = b_0_1 - np.dot(s_calc, A_0_1).astype(int)    
 
@@ -51,17 +51,33 @@ def InvertO(R, A_0_1, b_0_1, H_2, doerrch):
 
 
 # Decrypt
-def Decrypt(sk, H_mu, b, pk, doerrch):
+def Decrypt(sk, H_mu, b, pk, doerrch, message_size):
 
     e0_hidden, e1_hidden, e2_hidden = getError()
 
     A0, A1, A2 = pk  # Extract public key components
     # calculate s and e01
-    s_calc, e01_calc = InvertO(sk, np.block([A0, A1 + np.dot(H_mu, G)]), b[:m-nk], H_mu, doerrch)
+    s_calc, e01_calc = InvertO(sk, np.block([A0, A1 + np.dot(H_mu, G)]), b[:m_tilda+nk], H_mu, doerrch)
+
+
+    message_blocks = message_size // nk
+    if message_size % nk != 0:
+        message_blocks+=1
 
     # old to be changed
-    helper1 = ( b[m_tilda+nk:] - np.dot(s_calc, A2) % q ) % q
-    decoded_message, e2_calc = decode(helper1)
+    decoded_message =[0] * message_size
+    for counter1 in range(message_blocks):
+        decoded_block, _ = decode((b[m_tilda+nk+counter1*nk:m_tilda+nk+(counter1+1)*nk] - np.dot(s_calc, A2) % q ) % q)
+        if counter1 + 1 == message_blocks and message_size % nk !=0:
+            for counter2 in range(message_size % nk):
+                decoded_message[counter1*nk + counter2] = decoded_block[counter2]
+        else:
+            for counter2 in range(nk):
+                decoded_message[counter1*nk + counter2] = decoded_block[counter2]
+
+
+    #helper1 = ( b[m_tilda+nk:] - np.dot(s_calc, A2) % q ) % q
+    #decoded_message, e2_calc = decode(helper1)
 
     #new Todo
     #decoded_message = decode(helper1)

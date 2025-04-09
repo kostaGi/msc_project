@@ -8,7 +8,7 @@
 # m = ¯m+2nk
 */
 
-package main
+package updatable_encryption
 
 import (
 	"fmt"

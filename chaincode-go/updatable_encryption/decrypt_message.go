@@ -1,4 +1,4 @@
-package main
+package updatable_encryption
 
 import (
 	"fmt"
@@ -73,7 +73,7 @@ func invertO(R, Amu01 [][]int, b01 []int, H_2 [][]int) ([]int, []int, error) {
 	return s_calc, e_calc, nil
 }
 
-func decrypt(R1, Hmu [][]int, b []int, A0, A1, A2 [][]int) ([]int, error) {
+func Decrypt(R1, Hmu [][]int, b []int, A0, A1, A2 [][]int) ([]int, error) {
 
 	_, _, e2_hidden := get_error()
 
@@ -125,4 +125,73 @@ func decrypt(R1, Hmu [][]int, b []int, A0, A1, A2 [][]int) ([]int, error) {
 
 	return decoded_message, nil
 
+}
+
+func Decrypt_multiple(R1, Hmu [][]int, b []int, A0, A1, A2 [][]int, size int) ([]int, error) {
+
+	//_, _, e2_hidden := get_error()
+
+	helper1, err1 := dot_product_MM(Hmu, C.G)
+
+	if err1 != nil {
+		return nil, fmt.Errorf("decrypt - err1, %v", err1)
+	}
+
+	helper2, err2 := add_matrix(A1, helper1)
+
+	if err2 != nil {
+		return nil, fmt.Errorf("decrypt - err2, %v", err2)
+	}
+
+	helper3, err3 := concatenate_matrices_row(A0, helper2)
+
+	//fmt.Println("H=", len(helper3), len(helper3[0]), len(helper1), len(helper1[0]))
+	if err3 != nil {
+		return nil, fmt.Errorf("decrypt - err3, %v", err3)
+	}
+
+	//e01_calc, err10
+	s_calc, _, err10 := invertO(R1, helper3, b[:C.m_tilda+C.nk], Hmu)
+
+	if err10 != nil {
+		return nil, fmt.Errorf("decrypt - err10, %v", err10)
+	}
+
+	helper4, err4 := dot_product_VM(s_calc, A2)
+
+	if err4 != nil {
+		return nil, fmt.Errorf("decrypt - err4, %v", err4)
+	}
+
+	decoded_message := make([]int, size)
+	full_blocks := size / C.nk
+
+	for counter1 := range full_blocks {
+		helper5, err5 := add_vectors(b[C.m_tilda+C.nk+counter1*C.nk:C.m_tilda+C.nk+(counter1+1)*C.nk], negate_vector_values(helper4))
+		if err5 != nil {
+			return nil, fmt.Errorf("decrypt - err5, %v", err5)
+		}
+		decoded_message_block, _ := decode(helper5)
+
+		if counter1+1 == full_blocks {
+			for counter2 := range size % C.nk {
+				decoded_message_block[counter1*C.nk+counter2] = decoded_message_block[counter2]
+			}
+		} else {
+			for counter2 := range C.nk {
+				decoded_message_block[counter1*C.nk+counter2] = decoded_message_block[counter2]
+			}
+
+		}
+
+		/*
+			e2_calc = modQ(e2_calc)
+
+			if !reflect.DeepEqual(e2_hidden, e2_calc) {
+				return nil, fmt.Errorf("invertO - e1_hidden is not equal to e2_calc")
+			}
+		*/
+	}
+
+	return decoded_message, nil
 }

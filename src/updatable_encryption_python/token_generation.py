@@ -1,9 +1,9 @@
 import numpy as np
 
-from parameters import *
-from oracle_functions import *
-from utility_functions import *
-from encrypt_message import *
+from updatable_encryption_python.parameters import *
+from updatable_encryption_python.oracle_functions import *
+from updatable_encryption_python.utility_functions import *
+from updatable_encryption_python.encrypt_message import *
 
 def SampleDO(R1, A01m, H_mu, A_part_prime, tau):
 
@@ -19,7 +19,7 @@ def SampleDO(R1, A01m, H_mu, A_part_prime, tau):
 
     x = np.zeros((hhp, hha))
     #print("x=", x.shape)
-    H_hardcoded_inv = np.linalg.inv(H_mu).astype(int)
+    H_hardcoded_inv = inverse_matrixQ(H_mu, len(H_mu))
     
     #s = 5.0  # Example scaling factor
     #r = 3.0  # Rounding parameter
@@ -42,7 +42,7 @@ def SampleDO(R1, A01m, H_mu, A_part_prime, tau):
 
         u_tmp = A_part_prime_t[i] - u_tmp.flatten()
         #print("u_tmp=", u_tmp, u_tmp.shape)
-        v = np.dot(H_hardcoded_inv, u_tmp) 
+        v = np.dot(H_hardcoded_inv, u_tmp) % q
         #v = v.reshape(-1,1).T
         #print("v=", v)
 
@@ -60,7 +60,7 @@ def SampleDO(R1, A01m, H_mu, A_part_prime, tau):
 
         R_ext = np.block([ [R1], [np.eye(nk, dtype=int)] ])
         #print(R_ext.shape, z.shape)
-        x_vec = np.dot(R_ext, z)
+        x_vec = np.dot(R_ext, z) % q
         #print(i, x_vec.shape, p.shape)
         x_vec = p.flatten() + x_vec
         #print(i, x_vec.shape)
@@ -76,12 +76,12 @@ def SampleDO(R1, A01m, H_mu, A_part_prime, tau):
     return x
 
 
-def TokenGen(pk, sk, pk_prime, Hmu):
+def TokenGen(pk, sk, pk_prime, Hmu, message_size):
     #generate new Hmu_prime
-    Hmu_prime = H_hardcoded_prime
+    Hmu_prime = generate_invertible_matrixQ(n)
     A0, A1, A2 = pk
     A0_prime, A1_prime, A2_prime = pk_prime
-    Hmu_primeG = np.dot(Hmu_prime, G)
+    Hmu_primeG = np.dot(Hmu_prime, G) % q
     A_mu_prime = np.block([A0_prime, A1_prime + Hmu_primeG, A2_prime]) 
 
     HmG = np.dot(Hmu, G) % q
@@ -107,9 +107,29 @@ def TokenGen(pk, sk, pk_prime, Hmu):
     #print("V0, V1, V2, A0P =", V0.shape, V1.shape, V2.shape, A0_prime.shape)
     #print(V0)
     #print(A0_prime)
-    assert np.array_equal(V0, A0_prime)
-    assert np.array_equal(V1, (A1_prime + Hmu_primeG) % q)
+
+    if not np.array_equal(V0 , A0_prime % q):
+        print("Caclculated: V0", V0, "\n\n\n")
+        print("Caclculated: Test1", A0_prime % q, "\n\n\n")
+
+    assert np.array_equal(V0, A0_prime % q)
+
+
+    if not np.array_equal(V2, (A2_prime - A2) % q):
+        print("Caclculated: V2", V2, "\n\n\n")  
+        print("Caclculated: Test3", (A2_prime - A2) % q, "\n\n\n")
+
     assert np.array_equal(V2, (A2_prime - A2) % q)
+
+
+
+    if not np.array_equal(V1, (A1_prime + Hmu_primeG) % q):
+        print("Caclculated: V1", V1, "\n\n\n")  
+        print("Caclculated: Test2", (A1_prime + Hmu_primeG) % q, "\n\n\n")
+
+    assert np.array_equal(V1, (A1_prime + Hmu_primeG) % q)
+
+    
 
     #print(A1)
     #print(A1_prime)
@@ -129,7 +149,13 @@ def TokenGen(pk, sk, pk_prime, Hmu):
     print("e1h: ", e1h)
     print("e2h: ", e2h)
     # incorrect H (added it as parameter to change)
-    _, b_zero_message = Encrypt(pk_prime, np.zeros(nk), Hmu_prime, M, True)
+
+    message_blocks = message_size // nk
+    if message_size % nk != 0:
+        message_blocks+=1
+
+    # to put as true if you want to check values
+    _, b_zero_message = Encrypt(pk_prime, np.zeros(message_blocks* nk), Hmu_prime, M, False, message_blocks * nk)
     #b_zero_message = 0
     #e0ha, e1ha, e2ha = getError()
     #Lemma1Check(sk, np.concatenate((e0ha, e1ha)))
@@ -149,7 +175,10 @@ def TokenGen(pk, sk, pk_prime, Hmu):
     #print("e1b=", e1b)
     #Lemma1Check(sk, np.concatenate((e0b, e1b)))
 
-    return (M, b_zero_message, Hmu_prime)
+
+    return X0, X1, X2, b_zero_message, Hmu_prime
+
+    #return (M, b_zero_message, Hmu_prime)
 
 def update(token, c):
     M, b_zero_message, Hmu_prime = token

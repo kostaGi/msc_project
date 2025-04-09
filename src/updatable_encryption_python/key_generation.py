@@ -1,6 +1,6 @@
 import numpy as np
-from parameters import *
-from utility_functions import *
+from updatable_encryption_python.parameters import *
+from updatable_encryption_python.utility_functions import *
 
 def KeyGen(sk1):
     # uniform distribution with lower and upper bound q
@@ -19,6 +19,7 @@ def KeyGen(sk1):
     A2 = -np.dot(A0, R2) % q
     
     pk = [A0, A1, A2]  # Public Key
+    #pk_new = np.block([A0, A1, A2])
     sk = R1
 
     # to be removed

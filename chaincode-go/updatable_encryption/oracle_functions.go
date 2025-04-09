@@ -1,4 +1,4 @@
-package main
+package updatable_encryption
 
 import (
 	"math"

@@ -95,7 +95,6 @@ async function displayInputParameters() {
 }
 
 //verifyProof function
-
 async function VerifyProof(contract,proof) {
     //console.log('*** Proof:', proof);
     console.log('\n--> Evaluate Transaction: verifyProof, function returns checking the proof');
@@ -107,9 +106,40 @@ async function VerifyProof(contract,proof) {
     return result;
 }
 
-//main function
+//verifyProof function
+async function StorePublicKeys(contract,data) {
+    console.log('\n--> StoreOwnerPublicKeyMiddleware');
+    const resultBytes = await contract.submitTransaction('StoreOwnerPublicKeyMiddleware', data["owner"], data["public_key_D"], data["public_key_UE"]);
+    const resultJson = utf8Decoder.decode(resultBytes);
+    console.log('*** resultJson:', resultJson);
+    const result = JSON.parse(resultJson);
+    console.log('*** Result:', result);
+    return result;
+}
 
-async function main(inputProof) {
+async function GetPublicKeyUE(contract,data) {
+    console.log('\n--> ReadOwnerPublicKeyUE');
+    const resultBytes = await contract.evaluateTransaction('ReadOwnerPublicKeyUE', data["id"], data["owner"]);
+    const resultJson = utf8Decoder.decode(resultBytes);
+    console.log('*** resultJson:', resultJson);
+    const result = JSON.parse(resultJson);
+    console.log('*** Result:', result);
+    return result;
+}
+
+async function Init(contract,data) {
+    console.log('\n--> InitLedger');
+    const resultBytes = await contract.submitTransaction('InitLedger');
+    const resultJson = utf8Decoder.decode(resultBytes);
+    console.log('*** resultJson:', resultJson);
+    const result = JSON.parse(resultJson);
+    console.log('*** Result:', result);
+    return result;
+}
+
+
+//main function
+async function main(inputData) {
     await displayInputParameters();
     // The gRPC client connection should be shared by all Gateway connections to this endpoint.
     const client = await newGrpcConnection();
@@ -136,16 +166,52 @@ async function main(inputProof) {
         const network = gateway.getNetwork(channelName);
         // Get the smart contract from the network.
         const contract = network.getContract(chaincodeName);
+        
+        console.log('\n--> RequestType');
+        console.log(inputData["RequestType"]);
 
-        const response = await VerifyProof(contract,inputProof);
-        gateway.close();
-        client.close();
-        return response;
+        switch(String(inputData["RequestType"])){
 
+            case "0":
+                contract.evaluateTransaction('main');
+                gateway.close();
+                client.close();
+                return 0
+            case "1":
+                response = await VerifyProof(contract,inputData);
+                gateway.close();
+                client.close();
+                return response;
+            
+            case "2":
+                response = await StorePublicKeys(contract,inputData);
+                gateway.close();
+                client.close();
+                return response;
+            
+            case "3":
+                response = await GetPublicKeyUE(contract,inputData);
+                gateway.close();
+                client.close();
+                return response;
+            
+            case "4":
+                response = await Init(contract,inputData);
+                gateway.close();
+                client.close();
+                return response;
+
+
+            default:
+                gateway.close();
+                client.close();
+                console.log('\n--> Could not proccess request');
+
+        }
+        return null;
     } catch (error) {
 
         console.log ("error in try catch",error);
-
     }
 
 }
@@ -161,7 +227,8 @@ async function main(inputProof) {
 
 
 // Middleware to parse JSON bodies
-app.use(express.json());
+//app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Define the checkProof endpoint
 app.post('/checkProof', async(req, res) => {

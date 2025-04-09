@@ -17,35 +17,27 @@ from decrypt_message import *
 from token_generation import *
 
 
-def encode_nothing():
-    return np.random.randint(0, 2, nk)
-
-
-
-
-
-
-
-
-
-
-
-
-
+def encode_nothing(message_blocks):
+    return np.random.randint(0, 2, message_blocks*nk)
 
 
 def main():
 
-    #global e0_hidden, e1_hidden, e2_hidden
+    message_size = nk+3
+    message_blocks = 2
 
-    msg1 = encode_nothing()
+    msg1 = encode_nothing(message_blocks)
     pk1, sk1 = KeyGen(None)
-    H_mu, b = Encrypt(pk1, encode(msg1), H_hardcoded, None, False)
+    H_mu, b = Encrypt(pk1, encode(msg1), None, None, False, message_size)
     e0, e1, e2 = getError()
     Lemma1Check(sk1, np.concatenate((e0, e1)))
-    EqualityCheck(pk1, sk1)
-    msg2 = Decrypt(sk1, H_mu, b, pk1, True)
-    assert np.array_equal(msg1, msg2)
+    #EqualityCheck(pk1, sk1)
+    msg2 = Decrypt(sk1, H_mu, b, pk1, False, message_size)
+    
+    #print("msg1: ", msg1[:message_size], "\n\n")
+    #print("msg2: ", msg2, "\n\n")
+
+    assert np.array_equal(msg1[:message_size], msg2)
 
 
     current_b = b

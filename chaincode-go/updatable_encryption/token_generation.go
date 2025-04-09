@@ -1,4 +1,4 @@
-package main
+package updatable_encryption
 
 import (
 	"fmt"
@@ -75,7 +75,7 @@ func SampleDO(R1, Amu01, Hmu, A_part_prime [][]int, tau float64) ([][]int, error
 	return x, nil
 }
 
-func token_gen(A0, A1, A2, R1, A0_prime, A1_prime, A2_prime, Hmu [][]int) ([][]int, []int, [][]int, error) {
+func Token_gen(A0, A1, A2, R1, A0_prime, A1_prime, A2_prime, Hmu [][]int) ([][]int, []int, [][]int, error) {
 	Hmu_prime := generate_invertible_matrixQ(C.n)
 	Hmu_primeG, err1 := dot_product_MM(Hmu_prime, C.G)
 
@@ -262,7 +262,7 @@ func token_gen(A0, A1, A2, R1, A0_prime, A1_prime, A2_prime, Hmu [][]int) ([][]i
 		return nil, nil, nil, fmt.Errorf("token_gen - dot_product_MM(Amu, M) is not equal to A_mu_prime")
 	}
 
-	_, b_zero_message, err23 := encrypt(A0_prime, A1_prime, A2_prime, make([]int, C.nk), Hmu_prime, M, true)
+	_, b_zero_message, err23 := Encrypt(A0_prime, A1_prime, A2_prime, make([]int, C.nk), Hmu_prime, M, true)
 
 	if err23 != nil {
 		return nil, nil, nil, fmt.Errorf("token_gen - err23, %v", err23)
@@ -271,7 +271,7 @@ func token_gen(A0, A1, A2, R1, A0_prime, A1_prime, A2_prime, Hmu [][]int) ([][]i
 	return M, b_zero_message, Hmu_prime, nil
 }
 
-func update(M [][]int, b_zero_message []int, Hmu_prime [][]int, b []int) ([]int, [][]int, error) {
+func Update(M [][]int, b_zero_message []int, Hmu_prime [][]int, b []int) ([]int, [][]int, error) {
 	//e00, e01, e02 := get_error2()
 
 	//helper1 := concatenate_vector(concatenate_vector(e00, e01), e02)
@@ -297,4 +297,89 @@ func update(M [][]int, b_zero_message []int, Hmu_prime [][]int, b []int) ([]int,
 	*/
 
 	return b_prime, Hmu_prime, nil
+}
+
+func Update2(X0, X1, X2 [][]int, b_zero_message []int, b []int, message_size int) ([]int, error) {
+
+	full_blocks_count := message_size / C.nk
+	if message_size%C.nk != 0 {
+		full_blocks_count += 1
+	}
+
+	M, err1 := CreateM(X0, X1, X2, full_blocks_count)
+
+	if err1 != nil {
+		return nil, fmt.Errorf("Update2 - err1, %v", err1)
+	}
+
+	b_prime, err2 := dot_product_VM(b, M)
+
+	if err2 != nil {
+		return nil, fmt.Errorf("Update2 - err2, %v", err2)
+	}
+
+	b_prime, err3 := add_vectors(b_prime, b_zero_message)
+
+	if err3 != nil {
+		return nil, fmt.Errorf("Update2 - err3, %v", err3)
+	}
+
+	return b_prime, nil
+}
+
+func CreateM(X0, X1, X2 [][]int, full_blocks_count int) ([][]int, error) {
+	M, err1 := concatenate_matrices_row(X0, X1)
+
+	if err1 != nil {
+		return nil, fmt.Errorf("CreateM - err1, %v", err1)
+	}
+
+	for range full_blocks_count {
+		helper1, err2 := concatenate_matrices_row(M, X2)
+
+		if err2 != nil {
+			return nil, fmt.Errorf("CreateM - err2, %v", err2)
+		}
+
+		M = helper1
+	}
+
+	zeroMatrix1 := make([][]int, C.nk)
+	for i := range zeroMatrix1 {
+		zeroMatrix1[i] = make([]int, C.m_tilda)
+	}
+
+	zeroMatrix2 := make([][]int, C.nk)
+	for i := range zeroMatrix2 {
+		zeroMatrix2[i] = make([]int, C.nk)
+	}
+
+	zero_matrix_left := 0
+	for range full_blocks_count {
+		helper2, _ := concatenate_matrices_row(zeroMatrix1, zeroMatrix2)
+
+		for range zero_matrix_left {
+			zeroMatrix_3 := make([][]int, C.nk)
+			for i := range zeroMatrix_3 {
+				zeroMatrix_3[i] = make([]int, C.nk)
+			}
+			helper2, _ = concatenate_matrices_row(helper2, zeroMatrix_3)
+		}
+
+		helper2, _ = concatenate_matrices_row(helper2, identity_matrix(C.nk))
+
+		for range full_blocks_count - zero_matrix_left - 1 {
+
+			zeroMatrix_4 := make([][]int, C.nk)
+			for i := range zeroMatrix_4 {
+				zeroMatrix_4[i] = make([]int, C.nk)
+			}
+			helper2, _ = concatenate_matrices_row(helper2, zeroMatrix_4)
+		}
+
+		zero_matrix_left += 1
+		M, _ = concatenate_matrices_col(M, helper2)
+	}
+
+	return M, nil
 }
